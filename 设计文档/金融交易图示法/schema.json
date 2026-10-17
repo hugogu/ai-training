@@ -1,0 +1,704 @@
+{
+  "type": "object",
+  "properties": {
+    "ftn_version": {
+      "const": "1.0"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+    },
+    "view": {
+      "enum": [
+        "topology",
+        "timeline"
+      ]
+    },
+    "observer": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "currencies": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Z]{3}$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "parties": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/party"
+      },
+      "minItems": 1
+    },
+    "ledgers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ledger"
+      },
+      "minItems": 1
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/account"
+      },
+      "minItems": 2
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation"
+      },
+      "minItems": 1
+    },
+    "batches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/batch"
+      },
+      "minItems": 0
+    },
+    "legs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/leg"
+      },
+      "minItems": 1
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      },
+      "minItems": 0
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "ftn_version",
+    "scenario_id",
+    "view",
+    "observer",
+    "as_of",
+    "currencies",
+    "assumptions",
+    "parties",
+    "ledgers",
+    "accounts",
+    "operations",
+    "batches",
+    "legs",
+    "messages",
+    "relations"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FTN 1.0 Core Snapshot",
+  "$defs": {
+    "money": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "currency",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "party": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "ledger": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custodian": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "mode": {
+          "enum": [
+            "normalized",
+            "settlement"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "custodian",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "account": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "custodian": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "ledger": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "enum": [
+            "wallet",
+            "transit",
+            "revenue",
+            "fx_inventory",
+            "bank",
+            "external_boundary",
+            "rounding"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "owner",
+        "custodian",
+        "ledger",
+        "currency",
+        "purpose"
+      ],
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_legs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "required_legs"
+      ],
+      "additionalProperties": false
+    },
+    "batch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "ledger": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "atomic": {
+          "type": "boolean"
+        },
+        "composition": {
+          "enum": [
+            "transfer",
+            "split",
+            "gather",
+            "compound"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "ledger",
+        "atomic",
+        "composition"
+      ],
+      "additionalProperties": false
+    },
+    "leg": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "kind": {
+          "enum": [
+            "L",
+            "F"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "money": {
+          "$ref": "#/$defs/money"
+        },
+        "operation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "effect_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "batch_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "posted",
+            "voided",
+            "submitted",
+            "confirmed",
+            "failed",
+            "cancelled",
+            null
+          ]
+        },
+        "knowledge": {
+          "enum": [
+            "known",
+            "unknown",
+            "disputed"
+          ]
+        },
+        "posted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "commit_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "last_known_state": {
+          "enum": [
+            "planned",
+            "submitted"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "confirmation_basis": {
+          "enum": [
+            "rail_settlement",
+            "beneficiary_credit",
+            "available_to_spend",
+            null
+          ]
+        },
+        "finality": {
+          "enum": [
+            "unassessed",
+            "provisional",
+            "final"
+          ]
+        },
+        "finality_rule_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "from",
+        "to",
+        "money",
+        "operation_ref",
+        "effect_ref",
+        "batch_ref",
+        "state",
+        "knowledge"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "L"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "planned",
+                  "posted",
+                  "voided"
+                ]
+              },
+              "knowledge": {
+                "const": "known"
+              },
+              "batch_ref": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+              },
+              "last_known_state": false,
+              "evidence": false,
+              "confirmation_basis": false,
+              "finality": false,
+              "finality_rule_ref": false
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "posted"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "posted_at",
+                    "commit_ref"
+                  ]
+                }
+              }
+            ]
+          },
+          "else": {
+            "required": [
+              "evidence",
+              "confirmation_basis",
+              "finality",
+              "finality_rule_ref"
+            ],
+            "properties": {
+              "state": {
+                "enum": [
+                  "planned",
+                  "submitted",
+                  "confirmed",
+                  "failed",
+                  "cancelled",
+                  null
+                ]
+              },
+              "batch_ref": {
+                "type": "null"
+              },
+              "posted_at": false,
+              "commit_ref": false
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "confirmed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "confirmation_basis": {
+                      "enum": [
+                        "rail_settlement",
+                        "beneficiary_credit",
+                        "available_to_spend"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "from_party": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "to_party": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "type": {
+          "enum": [
+            "payment_request",
+            "query",
+            "response",
+            "notification",
+            "quote",
+            "book_order"
+          ]
+        },
+        "operation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "attempt_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "from_party",
+        "to_party",
+        "type",
+        "operation_ref",
+        "attempt_id",
+        "idempotency_key",
+        "occurred_at",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "payment_request"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "attempt_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "idempotency_key": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "book_order"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "idempotency_key": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "realizes",
+            "reverses",
+            "returns",
+            "refunds",
+            "retry_of",
+            "caused_by"
+          ]
+        },
+        "from_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        },
+        "to_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$"
+        }
+      },
+      "required": [
+        "type",
+        "from_ref",
+        "to_ref"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

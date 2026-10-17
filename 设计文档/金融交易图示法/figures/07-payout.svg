@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450" viewBox="0 0 900 450">
+<rect width="100%" height="100%" fill="white"/>
+<g font-family="Arial Unicode MS, PingFang SC, Noto Sans CJK SC, sans-serif" stroke-linejoin="round" stroke-linecap="round">
+<rect x="15" y="15" width="870" height="415" rx="12" fill="#ffffff" stroke="#263746" stroke-width="1.5"/>
+<text x="450" y="43" font-size="19" text-anchor="middle" fill="#263746">G O1：L1、L2 posted 且 F1 confirmed 才完成</text>
+<rect x="35" y="65" width="830" height="215" rx="0" fill="#ffffff" stroke="#263746" stroke-width="1.5" stroke-dasharray="7 4 1 4"/>
+<text x="450" y="88" font-size="17" text-anchor="middle" fill="#263746">B1 / K1 / split / atomic=true / commit:B1</text>
+<circle cx="115" cy="165" r="48" fill="#d3f2da" stroke="#263746" stroke-width="1.8"/>
+<text x="115" y="160.5" font-size="17" text-anchor="middle" fill="#263746">A1</text>
+<text x="115" y="181.5" font-size="17" text-anchor="middle" fill="#263746">钱包 USD</text>
+<circle cx="725" cy="145" r="40" fill="#e6e9ec" stroke="#263746" stroke-width="1.8"/>
+<text x="725" y="140.5" font-size="17" text-anchor="middle" fill="#263746">A2</text>
+<text x="725" y="161.5" font-size="15.492713316275447" text-anchor="middle" fill="#263746">中间 USD</text>
+<circle cx="725" cy="235" r="36" fill="#ffffff" stroke="#263746" stroke-width="1.8"/>
+<text x="725" y="230.5" font-size="17" text-anchor="middle" fill="#263746">A3</text>
+<text x="725" y="251.5" font-size="13.670041161419512" text-anchor="middle" fill="#263746">收入 USD</text>
+<polyline points="165,165 350,165 350,145 683,145" fill="none" stroke="#263746" stroke-width="1.8"/>
+<polygon points="683,145 672.0,140.0 672.0,150.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="455" y="130" font-size="17" text-anchor="middle" fill="#263746">L1 100 USD | posted</text>
+<polyline points="350,165 350,235 687,235" fill="none" stroke="#263746" stroke-width="1.8"/>
+<polygon points="687,235 676.0,230.0 676.0,240.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="475" y="259" font-size="17" text-anchor="middle" fill="#263746">L2 1 USD | posted</text>
+<circle cx="115" cy="355" r="47" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
+<text x="115" y="350.5" font-size="17" text-anchor="middle" fill="#263746">A4</text>
+<text x="115" y="371.5" font-size="17" text-anchor="middle" fill="#263746">银行 USD</text>
+<circle cx="725" cy="355" r="47" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
+<text x="725" y="350.5" font-size="17" text-anchor="middle" fill="#263746">A5</text>
+<text x="725" y="371.5" font-size="17" text-anchor="middle" fill="#263746">银行 USD</text>
+<polyline points="164,355 675,355" fill="none" stroke="#263746" stroke-width="5"/>
+<polyline points="164,355 675,355" fill="none" stroke="white" stroke-width="2.1"/>
+<polygon points="675,355 664.0,350.0 664.0,360.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="445" y="335" font-size="17" text-anchor="middle" fill="#263746">F1 100 USD | confirmed</text>
+<text x="445" y="397" font-size="17" text-anchor="middle" fill="#263746">basis=beneficiary_credit；F1 realizes L1</text>
+</g>
+</svg>
