@@ -1,351 +1,244 @@
-"""Validate the FTN Core snapshot; no network calls or payment execution."""
+"""Check FTN 1.1 business diagrams, accounting projections and example records."""
 
 import argparse
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schema.json").read_text())
 
 
+def balance_changes(model):
+    """Natural-balance changes in minor units, grouped by business event/account."""
+    accounts = {a["id"]: a for a in model["accounts"]}
+    changes = defaultdict(lambda: defaultdict(int))
+    for journal in model["journals"]:
+        for row in journal["rows"]:
+            nature = accounts[row["account_ref"]]["nature"]
+            debit_positive = nature in {"asset", "expense"}
+            sign = 1 if (row["side"] == "DR") == debit_positive else -1
+            changes[journal["event_ref"]][row["account_ref"]] += (
+                sign * row["money"]["minor"]
+            )
+    return changes
+
+
 def validate(model):
-    """Return all structural or cross-object violations, without modifying input."""
+    """Return violations without changing the model or consulting external records."""
+    structural = sorted(
+        Draft202012Validator(SCHEMA).iter_errors(model),
+        key=lambda err: str(list(err.path)),
+    )
+    if structural:
+        return [f"SCHEMA {list(err.path)}: {err.message}" for err in structural]
     errors = []
 
     def require(condition, rule, detail):
         if not condition:
             errors.append(f"{rule}: {detail}")
 
-    structural = sorted(
-        Draft202012Validator(SCHEMA, format_checker=FormatChecker()).iter_errors(model),
-        key=lambda err: str(list(err.path)),
-    )
-    if structural:
-        return [f"SCHEMA {list(err.path)}: {err.message}" for err in structural]
+    def check_numbers(value):
+        if isinstance(value, dict):
+            if "minor" in value and "currency" in value:
+                require(
+                    type(value["minor"]) is int
+                    and value["currency"] in model["currency_scale"],
+                    "R02",
+                    "money requires declared currency and integer JSON syntax",
+                )
+            if "prior_minor" in value:
+                require(type(value["prior_minor"]) is int, "R02", "integer prior_minor")
+            for child in value.values():
+                check_numbers(child)
+        elif isinstance(value, list):
+            for child in value:
+                check_numbers(child)
 
+    check_numbers(model)
+    for scale in model["currency_scale"].values():
+        require(type(scale) is int, "R02", "integer currency scale")
     groups = (
         "parties",
-        "ledgers",
         "accounts",
-        "operations",
-        "batches",
-        "legs",
-        "messages",
-    )
-    objects = [item for group in groups for item in model[group]]
-    counts = Counter(item["id"] for item in objects)
-    require(all(n == 1 for n in counts.values()), "R01", "duplicate global id")
+        "orders",
+        "events",
+        "flows",
+        "information",
+        "journals",
+        "records")
+    objects = [model["scenario"]] + [v for g in groups for v in model[g]]
+    counts = Counter(v["id"] for v in objects)
+    require(all(n == 1 for n in counts.values()), "R01", "duplicate object id")
     if errors:
         return errors
-    by_id = {item["id"]: item for item in objects}
-    parties = {p["id"] for p in model["parties"]}
-    ledgers = {k["id"]: k for k in model["ledgers"]}
-    accounts = {a["id"]: a for a in model["accounts"]}
-    operations = {o["id"]: o for o in model["operations"]}
-    batches = {b["id"]: b for b in model["batches"]}
-    legs = {leg["id"]: leg for leg in model["legs"]}
-    require(model["observer"] in parties, "R01", "unknown observer")
-    for ledger in ledgers.values():
-        require(ledger["custodian"] in parties, "R01", ledger["id"] + " custodian")
+    parties = {v["id"]: v for v in model["parties"]}
+    accounts = {v["id"]: v for v in model["accounts"]}
+    orders = {v["id"]: v for v in model["orders"]}
+    events = {v["id"]: v for v in model["events"]}
+    flows = {v["id"]: v for v in model["flows"]}
+    entity = model["scenario"]["entity"]
+    require(entity in parties, "R01", "scenario entity")
+    require(model["scenario"]["currency"] in model["currency_scale"], "R02", "scenario currency")
+    codes = []
     for account in accounts.values():
         aid = account["id"]
+        require(account["party"] in parties, "R01", aid + " party")
+        require(account["bank"] is None or account["bank"] in parties, "R01", aid + " bank")
+        require(account["currency"] in model["currency_scale"], "R02", aid + " currency")
+        external = account["kind"] == "external"
         require(
-            account["owner"] in parties and account["custodian"] in parties,
-            "R01",
-            aid + " party",
+            (account["nature"] == "external" and account["code"] is None)
+            if external
+            else (account["nature"] != "external" and account["code"] is not None and account["party"] == entity),
+            "R03", aid + " account scope/nature/code",
         )
-        require(account["currency"] in model["currencies"], "R02", aid + " currency")
-        ledger = ledgers.get(account["ledger"])
+        if account["kind"] == "bank":
+            require(account["nature"] == "asset" and account["bank"]
+                    is not None, "R03", aid + " bank account")
+        if not external:
+            codes.append((account["party"], account["code"], account["currency"]))
+    require(len(codes) == len(set(codes)), "R03", "duplicate account code in entity/currency")
+    for order in orders.values():
+        original = order["original_ref"]
+        require(original is None or original in orders, "R01", order["id"] + " original order")
         require(
-            ledger is not None
-            or (
-                account["purpose"] == "external_boundary" and account["ledger"] is None
-            ),
-            "R01",
-            aid + " ledger",
+            (original is not None and original != order["id"] and orders.get(original, {}).get("type") == "payment")
+            if order["type"] == "refund" else original is None,
+            "R10", order["id"] + " refund origin",
         )
-        if ledger:
-            require(
-                ledger["custodian"] == account["custodian"],
-                "R01",
-                aid + " ledger custodian mismatch",
-            )
-        if account["purpose"] == "bank":
-            require(
-                ledger is not None and ledger["mode"] == "settlement",
-                "R03",
-                aid + " bank ledger",
-            )
+    for event in events.values():
+        require(event["order_ref"] in orders, "R01", event["id"] + " order")
+        require(all(e in events for e in event["after"]), "R08", event["id"] + " prerequisite")
+    for flow in flows.values():
+        require(flow["from"] in accounts and flow["to"]
+                in accounts, "R01", flow["id"] + " endpoints")
+        require(flow["event_ref"] in events, "R01", flow["id"] + " event")
+    for info in model["information"]:
+        require(info["from_party"] in parties and info["to_party"]
+                in parties, "R01", info["id"] + " parties")
+        require(info["event_ref"] in events, "R01", info["id"] + " event")
+    for journal in model["journals"]:
+        require(journal["event_ref"] in events, "R01", journal["id"] + " event")
+        for row in journal["rows"]:
+            require(row["account_ref"] in accounts, "R01", journal["id"] + " account")
+    for record in model["records"]:
+        require(record["order_ref"] in orders, "R01", record["id"] + " order")
+        require(all(e in events for e in record["event_refs"]), "R01", record["id"] + " events")
+    if any(e.startswith(("R01:", "R08:")) for e in errors):
+        return errors
 
-    for message in model["messages"]:
-        require(
-            message["from_party"] in parties and message["to_party"] in parties,
-            "R01",
-            message["id"] + " endpoint",
-        )
-        require(
-            message["operation_ref"] in operations, "R01", message["id"] + " operation"
-        )
-    for leg in legs.values():
-        lid = leg["id"]
-        require(
-            type(leg["money"]["minor"]) is int,
-            "R02",
-            lid + " amount must use integer JSON syntax",
-        )
-        require(leg["operation_ref"] in operations, "R01", lid + " operation")
-        require(
-            leg["money"]["currency"] in model["currencies"], "R02", lid + " currency"
-        )
-        source, target = accounts.get(leg["from"]), accounts.get(leg["to"])
-        require(source is not None and target is not None, "R01", lid + " endpoints")
-        require(leg["from"] != leg["to"], "R03", lid + " self transfer")
-        if source and target:
-            require(
-                source["currency"] == target["currency"] == leg["money"]["currency"],
-                "R03",
-                lid + " currency mismatch",
-            )
-            if leg["kind"] == "L":
-                ledger = ledgers.get(source["ledger"])
-                require(
-                    source["ledger"] == target["ledger"]
-                    and ledger is not None
-                    and ledger["mode"] == "normalized",
-                    "R03",
-                    lid + " local ledger",
-                )
-                batch = batches.get(leg["batch_ref"])
-                require(
-                    batch is not None and batch["ledger"] == source["ledger"],
-                    "R04",
-                    lid + " batch",
-                )
-            else:
-                require(
-                    source["purpose"] in {"bank", "external_boundary"}
-                    and target["purpose"] in {"bank", "external_boundary"},
-                    "R03",
-                    lid + " external endpoint type",
-                )
-        if leg["kind"] == "F":
-            known = leg["knowledge"] == "known"
-            require(
-                (known and leg["state"] is not None)
-                or (not known and leg["state"] is None),
-                "R08",
-                lid + " knowledge/state",
-            )
-            if leg["state"] in {"confirmed", "failed", "cancelled"}:
-                require(
-                    known and bool(leg["evidence"]), "R07", lid + " terminal evidence"
-                )
-            if leg["state"] != "confirmed":
-                require(
-                    leg["confirmation_basis"] is None,
-                    "R07",
-                    lid + " premature confirmation basis",
-                )
-            if leg["finality"] == "final":
-                require(
-                    known
-                    and leg["state"] == "confirmed"
-                    and bool(leg["evidence"])
-                    and bool(leg["finality_rule_ref"]),
-                    "R09",
-                    lid + " finality claim",
-                )
+    visiting, visited = set(), set()
 
-    for batch in batches.values():
-        members = [leg for leg in legs.values() if leg["batch_ref"] == batch["id"]]
-        require(batch["ledger"] in ledgers, "R04", batch["id"] + " ledger")
-        require(bool(members), "R04", batch["id"] + " empty batch")
-        require(
-            len({leg["operation_ref"] for leg in members}) == 1,
-            "R04",
-            batch["id"] + " mixed operations",
-        )
-        sources, targets = {x["from"] for x in members}, {x["to"] for x in members}
-        valid = {
-            "transfer": len(members) == 1,
-            "split": len(sources) == 1 and len(targets) > 1,
-            "gather": len(sources) > 1 and len(targets) == 1,
-            "compound": True,
-        }
-        require(valid[batch["composition"]], "R05", batch["id"] + " composition")
-        if batch["atomic"]:
-            require(
-                len({x["state"] for x in members}) == 1,
-                "R06",
-                batch["id"] + " partial atomic batch",
-            )
-            posted = [x for x in members if x["state"] == "posted"]
-            if posted:
-                require(
-                    len({(x["posted_at"], x["commit_ref"]) for x in posted}) == 1,
-                    "R06",
-                    batch["id"] + " commit mismatch",
-                )
+    def visit(eid):
+        if eid in visiting:
+            require(False, "R08", eid + " cyclic prerequisites")
+            return
+        if eid in visited:
+            return
+        visiting.add(eid)
+        for parent in events[eid]["after"]:
+            visit(parent)
+        visiting.remove(eid)
+        visited.add(eid)
 
-    possible = Counter(
-        leg["effect_ref"]
-        for leg in legs.values()
-        if leg["kind"] == "F"
-        and (leg["state"] in {"confirmed", "submitted"} or leg["knowledge"] != "known")
-    )
-    for effect, count in possible.items():
-        require(count <= 1, "R10", effect + " possible duplicate execution")
-    external_units = defaultdict(list)
-    for leg in legs.values():
-        if leg["kind"] == "F":
-            external_units[leg["effect_ref"]].append(leg)
-    for effect, unit in external_units.items():
-        reference = unit[0]
+    for eid in events:
+        visit(eid)
+    projections = {kind: defaultdict(lambda: defaultdict(int)) for kind in ("F", "L")}
+    touched = {kind: defaultdict(set) for kind in ("F", "L")}
+    for flow in flows.values():
+        source, target = accounts[flow["from"]], accounts[flow["to"]]
+        kind, eid, value = flow["kind"], flow["event_ref"], flow["money"]["minor"]
+        require(source["id"] != target["id"], "R03", flow["id"] + " self flow")
+        require(source["currency"] == target["currency"] == flow["money"]
+                ["currency"], "R03", flow["id"] + " currency")
+        if kind == "F":
+            require(all(a["kind"] in {"bank", "external"} for a in (
+                source, target)), "R03", flow["id"] + " funding endpoints")
+        else:
+            require(all(a["party"] == entity and a["kind"] != "external" for a in (
+                source, target)), "R03", flow["id"] + " ledger endpoints")
+        for a, sign in ((source, -1), (target, 1)):
+            if kind == "L" or a["kind"] == "bank":
+                projections[kind][eid][a["id"]] += sign * value
+                touched[kind][eid].add(a["id"])
+    for journal in model["journals"]:
+        totals = defaultdict(int)
+        for row in journal["rows"]:
+            account = accounts[row["account_ref"]]
+            require(account["party"] == entity and account["kind"]
+                    != "external", "R04", journal["id"] + " entity")
+            require(
+                row["money"]["currency"] == account["currency"],
+                "R04",
+                journal["id"] +
+                " currency")
+            totals[row["money"]["currency"]] += row["money"]["minor"] * \
+                (1 if row["side"] == "DR" else -1)
+        require(len(totals) == 1, "R04", journal["id"] + " single-currency journal")
+        require(all(t == 0 for t in totals.values()), "R05", journal["id"] + " unbalanced")
+    changes = balance_changes(model)
+    for kind, rule in (("L", "R06"), ("F", "R07")):
+        for eid, account_ids in touched[kind].items():
+            for aid in account_ids:
+                require(projections[kind][eid][aid] == changes[eid][aid],
+                        rule, f"{eid}/{aid} diagram and journal differ")
+    for record in model["records"]:
+        require(all(events[e]["order_ref"] == record["order_ref"]
+                for e in record["event_refs"]), "R09", record["id"] + " order/event mapping")
+    refund = model["refund"]
+    refund_orders = {o["id"] for o in orders.values() if o["type"] == "refund"}
+    require(bool(refund) == bool(refund_orders), "R10", "refund analysis requires origin and caps")
+    if refund:
+        order = orders.get(refund["order_ref"], {})
+        require(refund_orders == {refund["order_ref"]} and order.get(
+            "original_ref") == refund["original_order_ref"], "R10", "refund order/origin")
+        require(refund["original_scenario_ref"] != model["scenario"]
+                ["id"], "R10", "refund scenario cannot be its own origin")
+        cap_names = [c["component"] for c in refund["caps"]]
         require(
-            all(
-                all(
-                    item[k] == reference[k]
-                    for k in ("operation_ref", "from", "to", "money")
-                )
-                for item in unit
-            ),
+            len(cap_names) == len(
+                set(cap_names)) and set(cap_names) == set(
+                model["components"]),
             "R10",
-            effect + " inconsistent payment unit",
-        )
-    returned = defaultdict(int)
-    reversed_count = Counter()
-    seen_relations = set()
-    for relation in model["relations"]:
-        kind = relation["type"]
-        key = (kind, relation["from_ref"], relation["to_ref"])
-        require(key not in seen_relations, "R01", "duplicate relation")
-        seen_relations.add(key)
-        new, old = by_id.get(relation["from_ref"]), by_id.get(relation["to_ref"])
-        require(
-            new is not None and old is not None and new != old,
-            "R01",
-            "invalid relation endpoint",
-        )
-        if not new or not old or new == old:
-            continue
-        if kind == "refunds":
-            require(
-                new["id"] in operations and old["id"] in operations,
-                "R13",
-                "refunds endpoints must be operations",
-            )
-        elif kind == "realizes":
-            require(
-                new.get("kind") == "F"
-                and old.get("kind") == "L"
-                and new.get("operation_ref") == old.get("operation_ref")
-                and new.get("effect_ref") == old.get("effect_ref")
-                and new.get("money") == old.get("money"),
-                "R14",
-                "realizes F -> L with same operation/effect/money",
-            )
-        elif kind == "retry_of":
-            same = all(
-                new.get(k) == old.get(k)
-                for k in ("operation_ref", "effect_ref", "from", "to", "money")
-            )
-            require(
-                new.get("kind") == old.get("kind") == "F"
-                and old.get("knowledge") == "known"
-                and old.get("state") in {"failed", "cancelled"}
-                and bool(old.get("evidence"))
-                and same,
-                "R11",
-                "retry needs authoritative non-execution and same payment unit",
-            )
-        elif kind in {"reverses", "returns"}:
-            is_local = kind == "reverses"
-            expected_kind = "L" if is_local else "F"
-            valid = new.get("kind") == old.get("kind") == expected_kind
+            "unique cap per declared refund component")
+        all_refs = [f for c in refund["caps"] for f in c["flow_refs"]]
+        require(len(all_refs) == len(set(all_refs)), "R10",
+                "refund component flows must not overlap")
+        for cap in refund["caps"]:
+            refs = cap["flow_refs"]
+            component = model["components"].get(cap["component"])
+            valid = all(f in flows for f in refs) and component is not None
+            require(valid, "R10", cap["component"] + " component/flow references")
             if not valid:
-                require(
-                    False, "R12" if is_local else "R13", "wrong reversal/return kind"
-                )
                 continue
-            same_money = new["money"]["currency"] == old["money"]["currency"]
-            swapped = new["from"] == old["to"] and new["to"] == old["from"]
-            if is_local:
-                require(
-                    same_money
-                    and swapped
-                    and new["money"] == old["money"]
-                    and new["state"] == old["state"] == "posted",
-                    "R12",
-                    "invalid equal local reversal",
-                )
-                reversed_count[old["id"]] += 1
-            else:
-                require(
-                    same_money
-                    and swapped
-                    and new["state"] == old["state"] == "confirmed"
-                    and new["knowledge"] == old["knowledge"] == "known",
-                    "R13",
-                    "invalid external return",
-                )
-                returned[old["id"]] += new["money"]["minor"]
-    for lid, amount in returned.items():
-        require(amount <= legs[lid]["money"]["minor"], "R13", lid + " over-return")
-    for lid, count in reversed_count.items():
-        require(count <= 1, "R12", lid + " repeated full reversal")
-    for operation in operations.values():
-        require(
-            all(
-                lid in legs and legs[lid]["operation_ref"] == operation["id"]
-                for lid in operation["required_legs"]
-            ),
-            "R14",
-            operation["id"] + " required legs",
-        )
+            value = sum(flows[f]["money"]["minor"] for f in refs)
+            currency = cap["original_money"]["currency"]
+            require(all(flows[f]["money"]["currency"] == currency and events[flows[f]["event_ref"]]["order_ref"] == refund["order_ref"]
+                    for f in refs) and component["currency"] == currency, "R10", cap["component"] + " currency/order")
+            require(
+                value == component["minor"] and cap["prior_minor"] +
+                value <= cap["original_money"]["minor"],
+                "R10",
+                cap["component"] +
+                " refund amount/cap")
     return errors
-
-
-def outcomes(model):
-    """Derive outcomes only for validated, explicitly scoped completion predicates."""
-    legs = {leg["id"]: leg for leg in model["legs"]}
-    result = {}
-    for operation in model["operations"]:
-        required = [legs[lid] for lid in operation["required_legs"]]
-        success = [
-            leg["state"] == "posted"
-            if leg["kind"] == "L"
-            else leg["knowledge"] == "known" and leg["state"] == "confirmed"
-            for leg in required
-        ]
-        terminal = [
-            ok or leg["state"] in {"voided", "failed", "cancelled"}
-            for leg, ok in zip(required, success)
-        ]
-        result[operation["id"]] = (
-            "completed"
-            if all(success)
-            else "closed_unsuccessful"
-            if all(terminal)
-            else "partial"
-            if any(success)
-            else "open"
-        )
-    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("files", nargs="+", type=Path)
+    parser.add_argument("paths", nargs="+", type=Path)
     args = parser.parse_args()
     failed = False
-    for path in args.files:
-        model = json.loads(path.read_text())
-        errors = validate(model)
+    for path in args.paths:
+        try:
+            errors = validate(json.loads(path.read_text()))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors = [str(exc)]
+        print(f"{path.name}: " + ("\n  " + "\n  ".join(errors) if errors else "OK"))
         failed |= bool(errors)
-        print(path.name, "INVALID" if errors else "VALID", errors or outcomes(model))
     raise SystemExit(1 if failed else 0)
 
 

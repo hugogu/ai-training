@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>$title · FTN 1.1</title>
+  <style>
+    body { font: 15px/1.65 system-ui,"PingFang SC",sans-serif; color: #263746;
+      background: #f2f5f7; margin: 0; }
+    main { max-width: 1280px; margin: auto; padding: 30px; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 0 0 15px; }
+    header p, footer { color: #526573; }
+    section { background: white; border: 1px solid #dae3e7; border-radius: 12px;
+      padding: 24px; margin: 20px 0; break-inside: avoid; }
+    .note { background: #fff6d4; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid section { margin: 0; }
+    svg { width: 100%; height: auto; max-height: 850px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #dce5e9;
+      vertical-align: top; }
+    th { background: #eaf1f4; }
+    a { color: #25697b; }
+    footer { padding: 20px 0; }
+    @media (max-width: 850px) {
+      main { padding: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      section { padding: 15px; overflow: auto; }
+    }
+    @media print {
+      body { background: white; }
+      main { padding: 0; }
+      section { break-inside: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p>FTN 1.1 · 业务分析示例 · $scenario_id</p>
+    <h1>$title</h1>
+    <p>分析主体 PSP · 币种 USD · <a href="$other_stem.html">查看$other_name示例</a></p>
+  </header>
+  <section class="note">
+    <h2>本例采用的业务规则</h2><ul>$assumptions</ul><p>边界：$scope</p>
+  </section>
+  <section>
+    <h2>业务图与事件分录</h2>$svg
+    <p>F 实线：资金划转；L 长虚线：账内变化。节点按 PSP 账内视角与 IBC 图外资金位置分开。
+    银行存款节点标注 DBS 维护。</p>
+  </section>
+  <section><h2>业务事件</h2>$events</section>
+  <section><h2>会计分录</h2>$entries</section>
+  <section>
+    <h2>业务明细</h2>$records<p>不同视角的金额不重复合计；客户口径只取客户视角记录。</p>
+  </section>
+  <div class="grid">
+    <section><h2>业务信息</h2>$infos</section>
+    <section><h2>账户变动核对</h2>$deltas<p>为本次变动额，不是期末余额。</p></section>
+  </div>
+  <footer>
+    数据源：<a href="https://whimsical.com/nanke-s-workspace/payout-transaction-NvkWtLCTtiyLkNKZs6rz4R">Whimsical · Payout Transaction</a>。
+    口径与原板差异见规范第 12 章；本例是业务分析材料，新增假设尚需团队确认。
+  </footer>
+</main>
+</body>
+</html>

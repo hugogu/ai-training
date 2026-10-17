@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>全额退款：本金退回、退费与客户余额恢复 · FTN 1.1</title>
+  <style>
+    body { font: 15px/1.65 system-ui,"PingFang SC",sans-serif; color: #263746;
+      background: #f2f5f7; margin: 0; }
+    main { max-width: 1280px; margin: auto; padding: 30px; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 0 0 15px; }
+    header p, footer { color: #526573; }
+    section { background: white; border: 1px solid #dae3e7; border-radius: 12px;
+      padding: 24px; margin: 20px 0; break-inside: avoid; }
+    .note { background: #fff6d4; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid section { margin: 0; }
+    svg { width: 100%; height: auto; max-height: 850px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #dce5e9;
+      vertical-align: top; }
+    th { background: #eaf1f4; }
+    a { color: #25697b; }
+    footer { padding: 20px 0; }
+    @media (max-width: 850px) {
+      main { padding: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      section { padding: 15px; overflow: auto; }
+    }
+    @media print {
+      body { background: white; }
+      main { padding: 0; }
+      section { break-inside: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p>FTN 1.1 · 业务分析示例 · SC-REFUND</p>
+    <h1>全额退款：本金退回、退费与客户余额恢复</h1>
+    <p>分析主体 PSP · 币种 USD · <a href="payout.html">查看出款示例</a></p>
+  </header>
+  <section class="note">
+    <h2>本例采用的业务规则</h2><ul><li>原订单 P00001 已完成；退款订单 R00001 关联原订单。</li><li>本例选择：本金 1,000、客户服务费 15、渠道手续费 10 USD 全部退还。</li><li>本金回客户资金户；渠道退费回自有资金户；客户退款使用待结算账户归集。</li><li>渠道退费到账不是客户退款的前置条件；未包含其他费用及 FX。</li></ul><p>边界：渠道资金位置为边界，最终收款人银行与后续收入资金划拨不展开</p>
+  </section>
+  <section>
+    <h2>业务图与事件分录</h2><svg xmlns="http://www.w3.org/2000/svg" width="900" height="680" viewBox="0 0 900 680">
+<rect width="100%" height="100%" fill="white"/>
+<g font-family="Arial Unicode MS, PingFang SC, Noto Sans CJK SC, sans-serif" stroke-linejoin="round" stroke-linecap="round">
+<text x="20" y="28" font-size="20" text-anchor="start" fill="#263746">SC-REFUND  /  USD  /  分析主体 PSP</text>
+<rect x="15" y="55" width="365" height="525" rx="8" fill="#fafbfc" stroke="#263746" stroke-width="1.5"/>
+<text x="27" y="80" font-size="17" text-anchor="start" fill="#263746">P_PSP · 本例账内视角</text>
+<rect x="420" y="55" width="155" height="525" rx="8" fill="#fafbfc" stroke="#263746" stroke-width="1.5"/>
+<text x="432" y="80" font-size="17" text-anchor="start" fill="#263746">P_IBC · 图外</text>
+<text x="195" y="104" font-size="15" text-anchor="middle" fill="#263746">银行存款由 DBS 维护</text>
+<circle cx="100" cy="155" r="48" fill="#d3f2da" stroke="#263746" stroke-width="1.8"/>
+<text x="100" y="150.5" font-size="17" text-anchor="middle" fill="#263746">客户可用</text>
+<text x="100" y="171.5" font-size="17" text-anchor="middle" fill="#263746">2202-01</text>
+<circle cx="100" cy="315" r="48" fill="#d3f2da" stroke="#263746" stroke-width="1.8"/>
+<text x="100" y="310.5" font-size="16.8" text-anchor="middle" fill="#263746">客户待结算</text>
+<text x="100" y="331.5" font-size="17" text-anchor="middle" fill="#263746">2202-04</text>
+<circle cx="100" cy="490" r="48" fill="#f1dcf7" stroke="#263746" stroke-width="1.8"/>
+<text x="100" y="485.5" font-size="16.8" text-anchor="middle" fill="#263746">服务费收入</text>
+<text x="100" y="506.5" font-size="17" text-anchor="middle" fill="#263746">6001-04</text>
+<circle cx="265" cy="155" r="48" fill="#e6e9ec" stroke="#263746" stroke-width="1.8"/>
+<text x="265" y="150.5" font-size="16.8" text-anchor="middle" fill="#263746">客户资金户</text>
+<text x="265" y="171.5" font-size="17" text-anchor="middle" fill="#263746">1002-04</text>
+<circle cx="290" cy="315" r="48" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
+<text x="290" y="310.5" font-size="17" text-anchor="middle" fill="#263746">渠道往来</text>
+<text x="290" y="331.5" font-size="17" text-anchor="middle" fill="#263746">2241-20</text>
+<circle cx="265" cy="490" r="48" fill="#e6e9ec" stroke="#263746" stroke-width="1.8"/>
+<text x="265" y="485.5" font-size="16.8" text-anchor="middle" fill="#263746">自有资金户</text>
+<text x="265" y="506.5" font-size="17" text-anchor="middle" fill="#263746">1002-32</text>
+<circle cx="497" cy="315" r="48" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
+<text x="497" y="310.5" font-size="16.987459267305223" text-anchor="middle" fill="#263746">IBC 资金户</text>
+<text x="497" y="331.5" font-size="17" text-anchor="middle" fill="#263746">X_IBC</text>
+<polyline points="497,267 497,155 313,155" fill="none" stroke="#263746" stroke-width="2.5"/>
+<polygon points="313,155 324.0,160.0 324.0,150.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="345" y="120" font-size="14.663484486873509" text-anchor="middle" fill="#263746">F_R1 / R1</text>
+<text x="345" y="142" font-size="17" text-anchor="middle" fill="#263746">1,000</text>
+<polyline points="497,363 497,490 313,490" fill="none" stroke="#263746" stroke-width="2.5"/>
+<polygon points="313,490 324.0,495.0 324.0,485.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="345" y="516" font-size="14.663484486873509" text-anchor="middle" fill="#263746">F_R2 / R2</text>
+<text x="345" y="538" font-size="17" text-anchor="middle" fill="#263746">10</text>
+<polyline points="242,315 148,315" fill="none" stroke="#263746" stroke-width="1.8" stroke-dasharray="10 7"/>
+<polygon points="148,315 159.0,320.0 159.0,310.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="195" y="270" font-size="14.843839226883373" text-anchor="middle" fill="#263746">L_R1 / R3</text>
+<text x="195" y="292" font-size="17" text-anchor="middle" fill="#263746">1,000</text>
+<polyline points="100,442 100,363" fill="none" stroke="#263746" stroke-width="1.8" stroke-dasharray="10 7"/>
+<polygon points="100,363 95.0,374.0 105.0,374.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="170" y="398" font-size="14.843839226883373" text-anchor="middle" fill="#263746">L_R2 / R3</text>
+<text x="170" y="420" font-size="17" text-anchor="middle" fill="#263746">15</text>
+<polyline points="100,267 100,203" fill="none" stroke="#263746" stroke-width="1.8" stroke-dasharray="10 7"/>
+<polygon points="100,203 95.0,214.0 105.0,214.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
+<text x="170" y="228" font-size="14.843839226883373" text-anchor="middle" fill="#263746">L_R3 / R4</text>
+<text x="170" y="250" font-size="17" text-anchor="middle" fill="#263746">1,015</text>
+<text x="195" y="565" font-size="16" text-anchor="middle" fill="#263746">R2：渠道成本自然余额 -10</text>
+<rect x="605" y="55" width="280" height="99" rx="6" fill="#f7f9fb" stroke="#263746" stroke-width="1.5"/>
+<text x="745" y="81" font-size="16" text-anchor="middle" fill="#263746">JR0001 / R1 本金退回</text>
+<text x="617" y="108" font-size="15" text-anchor="start" fill="#263746">DR  客户资金户  1,000</text>
+<text x="617" y="135" font-size="15" text-anchor="start" fill="#263746">CR  IBC·渠道往来  1,000</text>
+<rect x="605" y="166" width="280" height="99" rx="6" fill="#f7f9fb" stroke="#263746" stroke-width="1.5"/>
+<text x="745" y="192" font-size="16" text-anchor="middle" fill="#263746">JR0002 / R2 渠道退费</text>
+<text x="617" y="219" font-size="15" text-anchor="start" fill="#263746">DR  自有资金户  10</text>
+<text x="617" y="246" font-size="15" text-anchor="start" fill="#263746">CR  渠道成本  10</text>
+<rect x="605" y="277" width="280" height="126" rx="6" fill="#f7f9fb" stroke="#263746" stroke-width="1.5"/>
+<text x="745" y="303" font-size="16" text-anchor="middle" fill="#263746">JR0003 / R3 确认客户退款</text>
+<text x="617" y="330" font-size="15" text-anchor="start" fill="#263746">DR  IBC·渠道往来  1,000</text>
+<text x="617" y="357" font-size="15" text-anchor="start" fill="#263746">DR  服务费收入  15</text>
+<text x="617" y="384" font-size="15" text-anchor="start" fill="#263746">CR  客户待结算  1,015</text>
+<rect x="605" y="415" width="280" height="99" rx="6" fill="#f7f9fb" stroke="#263746" stroke-width="1.5"/>
+<text x="745" y="441" font-size="16" text-anchor="middle" fill="#263746">JR0004 / R4 恢复客户可用</text>
+<text x="617" y="468" font-size="15" text-anchor="start" fill="#263746">DR  客户待结算  1,015</text>
+<text x="617" y="495" font-size="15" text-anchor="start" fill="#263746">CR  客户可用  1,015</text>
+<polygon points="15,600 867,600 885,618 885,668 15,668" fill="#fff6c4" stroke="#263746" stroke-width="1.3"/>
+<path d="M867,600 v18 h18" fill="none" stroke="#263746"/>
+<text x="27" y="627" font-size="16" text-anchor="start" fill="#263746">本例：本金 1,000、客户服务费 15、渠道手续费 10 全退。</text>
+<text x="27" y="651" font-size="16" text-anchor="start" fill="#263746">F 是资金划转；L 是账内变化；渠道退费不追加到客户退款。</text>
+</g>
+</svg>
+
+    <p>F 实线：资金划转；L 长虚线：账内变化。节点按 PSP 账内视角与 IBC 图外资金位置分开。
+    银行存款节点标注 DBS 维护。</p>
+  </section>
+  <section><h2>业务事件</h2><table><thead><tr><th>事件</th><th>成立条件</th><th>前置事件</th><th>分录</th></tr></thead><tbody><tr><td>R1 本金退回</td><td>原本金已退入客户资金户</td><td>无</td><td>JR0001</td></tr><tr><td>R2 渠道退费</td><td>原费用已退入自有资金户</td><td>无</td><td>JR0002</td></tr><tr><td>R3 确认客户退款</td><td>本金已回收且客户服务费获准退还</td><td>R1</td><td>JR0003</td></tr><tr><td>R4 恢复客户可用</td><td>客户退款金额由待结算转可用</td><td>R3</td><td>JR0004</td></tr></tbody></table></section>
+  <section><h2>会计分录</h2><table><thead><tr><th>分录 / 事件</th><th>方向</th><th>科目</th><th>账户</th><th>金额 USD</th></tr></thead><tbody><tr><td>JR0001 / R1</td><td>DR</td><td>1002-04</td><td>DBS·客户资金户</td><td>1,000</td></tr><tr><td>JR0001 / R1</td><td>CR</td><td>2241-20</td><td>IBC·渠道往来</td><td>1,000</td></tr><tr><td>JR0002 / R2</td><td>DR</td><td>1002-32</td><td>DBS·自有资金户</td><td>10</td></tr><tr><td>JR0002 / R2</td><td>CR</td><td>6401-02</td><td>渠道成本</td><td>10</td></tr><tr><td>JR0003 / R3</td><td>DR</td><td>2241-20</td><td>IBC·渠道往来</td><td>1,000</td></tr><tr><td>JR0003 / R3</td><td>DR</td><td>6001-04</td><td>服务费收入</td><td>15</td></tr><tr><td>JR0003 / R3</td><td>CR</td><td>2202-04</td><td>客户余额·待结算</td><td>1,015</td></tr><tr><td>JR0004 / R4</td><td>DR</td><td>2202-04</td><td>客户余额·待结算</td><td>1,015</td></tr><tr><td>JR0004 / R4</td><td>CR</td><td>2202-01</td><td>客户余额·可用</td><td>1,015</td></tr></tbody></table></section>
+  <section>
+    <h2>业务明细</h2><table><thead><tr><th>明细</th><th>订单</th><th>视角</th><th>业务含义</th><th>金额 USD</th><th>事件</th></tr></thead><tbody><tr><td>RT00001</td><td>R00001</td><td>客户</td><td>客户本金退款</td><td>1,000</td><td>R3</td></tr><tr><td>RT00002</td><td>R00001</td><td>客户</td><td>客户服务费退还</td><td>15</td><td>R3</td></tr><tr><td>RT00003</td><td>R00001</td><td>渠道费用</td><td>渠道退费</td><td>10</td><td>R2</td></tr></tbody></table><p>不同视角的金额不重复合计；客户口径只取客户视角记录。</p>
+  </section>
+  <div class="grid">
+    <section><h2>业务信息</h2><table><thead><tr><th>信息 / 事件</th><th>发送方 → 接收方</th><th>业务含义</th></tr></thead><tbody><tr><td>I_R1 / R1</td><td>IBC 渠道 → PSP 付款服务商</td><td>本金退回结算通知：1,000 USD</td></tr><tr><td>I_R2 / R4</td><td>PSP 付款服务商 → 客户</td><td>退款完成通知：1,015 USD</td></tr></tbody></table></section>
+    <section><h2>账户变动核对</h2><table><thead><tr><th>科目</th><th>账户</th><th>本次自然余额变化 USD</th></tr></thead><tbody><tr><td>2202-01</td><td>客户余额·可用</td><td>+1,015</td></tr><tr><td>2202-07</td><td>客户余额·冻结</td><td>0</td></tr><tr><td>2202-04</td><td>客户余额·待结算</td><td>0</td></tr><tr><td>1002-04</td><td>DBS·客户资金户</td><td>+1,000</td></tr><tr><td>1002-32</td><td>DBS·自有资金户</td><td>+10</td></tr><tr><td>2241-20</td><td>IBC·渠道往来</td><td>0</td></tr><tr><td>6001-04</td><td>服务费收入</td><td>-15</td></tr><tr><td>6401-02</td><td>渠道成本</td><td>-10</td></tr></tbody></table><p>为本次变动额，不是期末余额。</p></section>
+  </div>
+  <footer>
+    数据源：<a href="https://whimsical.com/nanke-s-workspace/payout-transaction-NvkWtLCTtiyLkNKZs6rz4R">Whimsical · Payout Transaction</a>。
+    口径与原板差异见规范第 12 章；本例是业务分析材料，新增假设尚需团队确认。
+  </footer>
+</main>
+</body>
+</html>

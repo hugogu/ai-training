@@ -1,31 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="310" viewBox="0 0 900 310">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="255" viewBox="0 0 900 255">
 <rect width="100%" height="100%" fill="white"/>
 <g font-family="Arial Unicode MS, PingFang SC, Noto Sans CJK SC, sans-serif" stroke-linejoin="round" stroke-linecap="round">
-<text x="26" y="60" font-size="19" text-anchor="start" fill="#263746">消息层</text>
-<rect x="200" y="28" width="185" height="54" rx="0" fill="#ffffff" stroke="#263746" stroke-width="1.5"/>
-<text x="292" y="63" font-size="19" text-anchor="middle" fill="#263746">P 服务商</text>
-<rect x="660" y="28" width="210" height="54" rx="0" fill="#ffffff" stroke="#263746" stroke-width="1.5"/>
-<text x="765" y="63" font-size="19" text-anchor="middle" fill="#263746">P 银行</text>
-<polyline points="385,55 660,55" fill="none" stroke="#263746" stroke-width="1.8" stroke-dasharray="10 7"/>
-<polygon points="660,55 649.0,50.0 649.0,60.0" fill="white" stroke="#263746" stroke-width="1.5"/>
-<text x="520" y="39" font-size="17" text-anchor="middle" fill="#263746">M1 付款请求</text>
-<text x="26" y="155" font-size="19" text-anchor="start" fill="#263746">本地账务层</text>
-<circle cx="290" cy="150" r="53" fill="#d3f2da" stroke="#263746" stroke-width="1.8"/>
-<text x="290" y="156.0" font-size="17" text-anchor="middle" fill="#263746">A 客户钱包</text>
-<circle cx="760" cy="150" r="58" fill="#e6e9ec" stroke="#263746" stroke-width="1.8"/>
-<text x="760" y="156.0" font-size="17" text-anchor="middle" fill="#263746">A 付款中间户</text>
-<polyline points="350,150 695,150" fill="none" stroke="#263746" stroke-width="1.8"/>
-<polygon points="695,150 684.0,145.0 684.0,155.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
-<text x="520" y="134" font-size="17" text-anchor="middle" fill="#263746">L1 100 USD | posted</text>
-<text x="26" y="250" font-size="19" text-anchor="start" fill="#263746">外部资金层</text>
-<circle cx="290" cy="245" r="53" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
-<text x="290" y="251.0" font-size="13.535259790480207" text-anchor="middle" fill="#263746">A 服务商银行户</text>
-<circle cx="760" cy="245" r="58" fill="#d8edf4" stroke="#263746" stroke-width="1.8"/>
-<text x="760" y="251.0" font-size="14.975181044786613" text-anchor="middle" fill="#263746">A 受益人银行户</text>
-<polyline points="350,245 695,245" fill="none" stroke="#263746" stroke-width="5"/>
-<polyline points="350,245 695,245" fill="none" stroke="white" stroke-width="2.1"/>
-<polygon points="695,245 684.0,240.0 684.0,250.0" fill="#263746" stroke="#263746" stroke-width="1.5"/>
-<text x="520" y="229" font-size="17" text-anchor="middle" fill="#263746">F1 100 USD | confirmed</text>
-<text x="525" y="302" font-size="17" text-anchor="middle" fill="#263746">同一本金：F1 realizes L1；不可重复计入客户付款</text>
+<rect x="15" y="25" width="270" height="172" rx="8" fill="#fff6c4" stroke="#263746" stroke-width="1.5"/>
+<text x="150" y="59" font-size="24" text-anchor="middle" fill="#263746">场景卡</text>
+<text x="150" y="96" font-size="18" text-anchor="middle" fill="#263746">本金 1,000 / 服务费 15</text>
+<text x="150" y="128" font-size="18" text-anchor="middle" fill="#263746">渠道成本 10 USD</text>
+<text x="150" y="160" font-size="18" text-anchor="middle" fill="#263746">规则、假设、分析边界</text>
+<rect x="315" y="25" width="270" height="172" rx="8" fill="#d3f2da" stroke="#263746" stroke-width="1.5"/>
+<text x="450" y="59" font-size="24" text-anchor="middle" fill="#263746">业务图</text>
+<text x="450" y="96" font-size="18" text-anchor="middle" fill="#263746">账户与资金位置</text>
+<text x="450" y="128" font-size="18" text-anchor="middle" fill="#263746">F 资金 / L 账内 / I 信息</text>
+<text x="450" y="160" font-size="18" text-anchor="middle" fill="#263746">统一业务事件编号</text>
+<rect x="615" y="25" width="270" height="172" rx="8" fill="#d8edf4" stroke="#263746" stroke-width="1.5"/>
+<text x="750" y="59" font-size="24" text-anchor="middle" fill="#263746">关联表格</text>
+<text x="750" y="96" font-size="18" text-anchor="middle" fill="#263746">事件与成立条件</text>
+<text x="750" y="128" font-size="18" text-anchor="middle" fill="#263746">会计分录、示例明细</text>
+<text x="750" y="160" font-size="18" text-anchor="middle" fill="#263746">逐项核对金额与归属</text>
+<text x="450" y="237" font-size="19" text-anchor="middle" fill="#263746">同一场景、同一事件、同一金额口径；不同视角不重复合计</text>
 </g>
 </svg>

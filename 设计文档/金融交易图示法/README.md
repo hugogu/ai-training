@@ -1,18 +1,19 @@
-# 金融交易图示法 FTN 1.0
+# 金融交易图示法 FTN 1.1 · 业务分析版
 
-以原有 Financial Transaction Notions 为基础整理的提案规范，日期 2026-10-17。
+以 Financial Transaction Notions 与用户 Whimsical「Payout Transaction」为基础，描述业务资金流、账内变化、业务信息及其账务映射。日期 2026-10-17。
 
-- [规范正文](规范.md)：规范性定义、形式语义、图形语法、交易示例及检查规则。
-- [改进说明](改进说明.md)：与原设计的对应、改善、代价及尚未覆盖的范围。
-- [规范 PDF](../../output/pdf/金融交易图示法-规范-v1.0.pdf)
-- [改进说明 PDF](../../output/pdf/金融交易图示法-改进说明-v1.0.pdf)
-- `figures/`：可编辑 SVG 图例；不依赖颜色辨义。
-- `examples/`、`schema.json`：核心配置文件的机器表达。
-- `tools/validate.py`、`tests/`：核心静态检查，不是支付执行引擎或生产账务系统。
+- [规范正文](规范.md)：场景卡、符号语义、形式模型、出款及退款示例。
+- [改进说明](改进说明.md)：与 FTN 1.0 的差异、示例修订及待确认假设。
+- [规范 PDF](../../output/pdf/金融交易图示法-规范-v1.1.pdf)
+- [改进说明 PDF](../../output/pdf/金融交易图示法-改进说明-v1.1.pdf)
+- [出款示例](examples/payout.html) / [退款示例](examples/refund.html)：图、事件、分录、业务明细同页呈现。
+- `figures/`：五幅可编辑 SVG，沿用圆圈、箭头和黄色便笺。
+- `examples/*.json`、`schema.json`：可选机器表达；金额为正整数最小单位。
+- `tools/validate.py`、`tests/`：文档静态检查。
 
 ## 重建与验证
 
-需要 Python 3.11+、ReportLab、jsonschema、支持中文的 TrueType 字体，以及可选的 Poppler。字体由调用方传入，不绑定本机路径。
+需要 Python 3.11+、ReportLab、jsonschema，以及支持中文的 TrueType 字体。字体由调用方传入，不绑定本机路径。从本目录运行：
 
 ```bash
 python -m pip install -r requirements.txt
@@ -21,8 +22,10 @@ python tools/validate.py examples/*.json
 python tools/build.py --font "$FTN_FONT"
 ```
 
-从本目录执行以上命令。PDF 写入仓库的 `output/pdf/`；SVG 写入本目录的 `figures/`。正文是可维护源，PDF 是阅读版。金额示例均为构造数据；汇率只用于演算，不是实时报价。
+PDF 输出到仓库 `output/pdf/`，SVG 输出到 `figures/`，业务示例 HTML 输出到 `examples/`。图中事件及分录由业务 JSON 生成；规范 Markdown 是正文维护源。
 
-## 使用边界
+## 口径与边界
 
-本规范是独立设计的领域图示语言，不声称符合 ISO 20022、BPMN、会计准则或特定清算系统规则。原始 OmniGraffle 文档是设计输入，未被本任务覆盖修改。SVG 可用于后续在 OmniGraffle 中重绘或组合；未声称交付原生 `.graffle` 模板。
+业务来源：[Whimsical · Payout Transaction](https://whimsical.com/nanke-s-workspace/payout-transaction-NvkWtLCTtiyLkNKZs6rz4R)。沿用 1,000 / 15 / 10 USD 数据；新增假设和原板差异见规范第 12 章。未修改原画板及 `.graffle` 文件，也不把示例会计处理视作正式批准的会计政策。
+
+1.1 不兼容 1.0 的机器结构；旧版可从 Git 历史取得。本版不涉及 API、超时、重试或数据库事务。不声称属于 ISO 20022、BPMN 或正式会计准则。

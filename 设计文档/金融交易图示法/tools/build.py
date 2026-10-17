@@ -2,9 +2,13 @@
 
 import argparse
 import html
+import json
+from collections import defaultdict
+from decimal import Decimal
 import math
 import re
 from pathlib import Path
+from string import Template
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -21,6 +25,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from validate import balance_changes, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT.parents[1] / "output" / "pdf"
@@ -89,14 +95,12 @@ class Scene:
             elif kind == "circle":
                 x, y, r, fill = v
                 parts.append(
-                    f'<circle cx="{x}" cy="{y}" r="{r}" fill="{fill}" stroke="{INK}" stroke-width="1.8"/>'
-                )
+                    f'<circle cx="{x}" cy="{y}" r="{r}" fill="{fill}" stroke="{INK}" stroke-width="1.8"/>')
             elif kind == "rect":
                 x, y, w, h, fill, dash, radius = v
                 ds = f' stroke-dasharray="{dash}"' if dash else ""
                 parts.append(
-                    f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{radius}" fill="{fill}" stroke="{INK}" stroke-width="1.5"{ds}/>'
-                )
+                    f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{radius}" fill="{fill}" stroke="{INK}" stroke-width="1.5"{ds}/>')
             elif kind == "note":
                 x, y, w, h = v
                 points = [
@@ -118,23 +122,18 @@ class Scene:
                 poly = " ".join(f"{x},{y}" for x, y in points)
                 dash = (
                     ' stroke-dasharray="10 7"'
-                    if lk == "M"
+                    if lk == "L"
                     else ' stroke-dasharray="2 5"'
-                    if lk in {"N", "T"}
+                    if lk in {"N", "I"}
                     else ""
                 )
-                width = 5 if lk == "F" else 1.8
+                width = 2.5 if lk == "F" else 1.8
                 parts.append(
-                    f'<polyline points="{poly}" fill="none" stroke="{INK}" stroke-width="{width}"{dash}/>'
-                )
-                if lk == "F":
-                    parts.append(
-                        f'<polyline points="{poly}" fill="none" stroke="white" stroke-width="2.1"/>'
-                    )
+                    f'<polyline points="{poly}" fill="none" stroke="{INK}" stroke-width="{width}"{dash}/>')
                 if lk != "N":
                     tri = arrow(points)
                     ps = " ".join(f"{x},{y}" for x, y in tri)
-                    fill = "white" if lk == "M" else INK
+                    fill = "white" if lk == "I" else INK
                     parts.append(
                         f'<polygon points="{ps}" fill="{fill}" stroke="{INK}" stroke-width="1.5"/>'
                     )
@@ -220,20 +219,15 @@ class Diagram(Flowable):
                 )
             elif kind == "line":
                 points, lk = v
-                if lk == "M":
+                if lk == "L":
                     canvas.setDash(10, 7)
-                if lk in {"N", "T"}:
+                if lk in {"N", "I"}:
                     canvas.setDash(2, 5)
                 p = canvas.beginPath()
                 for idx, (x, y) in enumerate(points):
                     (p.moveTo if idx == 0 else p.lineTo)(x, h - y)
-                canvas.setLineWidth(5 if lk == "F" else 1.8)
+                canvas.setLineWidth(2.5 if lk == "F" else 1.8)
                 canvas.drawPath(p)
-                if lk == "F":
-                    canvas.setStrokeColor(colors.white)
-                    canvas.setLineWidth(2.1)
-                    canvas.drawPath(p)
-                    canvas.setStrokeColor(colors.HexColor(INK))
                 if lk != "N":
                     p = canvas.beginPath()
                     for idx, (x, y) in enumerate(arrow(points)):
@@ -241,216 +235,221 @@ class Diagram(Flowable):
                     p.close()
                     canvas.setDash()
                     canvas.setFillColor(
-                        colors.white if lk == "M" else colors.HexColor(INK)
+                        colors.white if lk == "I" else colors.HexColor(INK)
                     )
                     canvas.setLineWidth(1.5)
                     canvas.drawPath(p, fill=1)
         canvas.restoreState()
 
 
+def amount(money):
+    precision = MODELS[0]["currency_scale"][money["currency"]]
+    value = Decimal(money["minor"]) / (10 ** precision)
+    return f"{value:,.{precision}f}".removesuffix(".00")
+
+
+def load_models():
+    return [
+        json.loads(
+            (ROOT /
+             "examples" /
+             f"{name}.json").read_text()) for name in (
+            "payout",
+            "refund")]
+
+
+MODELS = load_models()
+
+
+def journal_card(scene, model, journal, x, y):
+    accounts = {a["id"]: a for a in model["accounts"]}
+    events = {e["id"]: e for e in model["events"]}
+    height = 45 + len(journal["rows"]) * 27
+    scene.rect(x, y, 280, height, "#f7f9fb", radius=6)
+    scene.text(x + 140,
+               y + 26,
+               f'{journal["id"]} / {journal["event_ref"]} {events[journal["event_ref"]]["name"]}',
+               16)
+    for index, row in enumerate(journal["rows"]):
+        name = accounts[row["account_ref"]]["name"].replace("客户余额·", "客户").replace("DBS·", "")
+        scene.text(x + 12, y + 53 + index * 27,
+                   f'{row["side"]}  {name}  {amount(row["money"])}', 15, "start")
+    return height
+
+
+def business_scene(model, refund=False):
+    s = Scene(680)
+    s.text(20, 28, model["scenario"]["id"] + "  /  USD  /  分析主体 PSP", 20, "start")
+    s.party(15, 55, 365, 525, "P_PSP · 本例账内视角")
+    s.party(420, 55, 155, 525, "P_IBC · 图外")
+    s.text(195, 104, "银行存款由 DBS 维护", 15)
+    positions = {
+        "A_AVAIL": (100, 155, GREEN),
+        "A_TRANSIT" if refund else "A_FROZEN": (100, 315, GREEN),
+        "A_REVENUE": (100, 490, "#f1dcf7"),
+        "A_BANK_C": (265, 155, GRAY),
+        "A_CHANNEL": (290, 315, BLUE),
+        "A_BANK_O": (265, 490, GRAY),
+        "X_IBC": (497, 315, BLUE),
+    }
+    short = {
+        "A_AVAIL": "客户可用\n2202-01", "A_FROZEN": "客户冻结\n2202-07",
+        "A_TRANSIT": "客户待结算\n2202-04", "A_REVENUE": "服务费收入\n6001-04",
+        "A_BANK_C": "客户资金户\n1002-04", "A_CHANNEL": "渠道往来\n2241-20",
+        "A_BANK_O": "自有资金户\n1002-32", "X_IBC": "IBC 资金户\nX_IBC",
+    }
+    for aid, (x, y, fill) in positions.items():
+        s.circle(x, y, short[aid], fill, 48)
+    flows = {f["id"]: f for f in model["flows"]}
+
+    def draw(fid, points, x, y):
+        f = flows[fid]
+        s.line(points, f["kind"])
+        label = f'{fid} / {f["event_ref"]}'
+        size = min(15, 66 / pdfmetrics.stringWidth(label, "CJK", 1))
+        s.text(x, y, label, size)
+        s.text(x, y + 22, amount(f["money"]), 17)
+
+    if refund:
+        draw("F_R1", [(497, 267), (497, 155), (313, 155)], 345, 120)
+        draw("F_R2", [(497, 363), (497, 490), (313, 490)], 345, 516)
+        draw("L_R1", [(242, 315), (148, 315)], 195, 270)
+        draw("L_R2", [(100, 442), (100, 363)], 170, 398)
+        draw("L_R3", [(100, 267), (100, 203)], 170, 228)
+        s.text(195, 565, "R2：渠道成本自然余额 -10", 16)
+        note = ["本例：本金 1,000、客户服务费 15、渠道手续费 10 全退。", "F 是资金划转；L 是账内变化；渠道退费不追加到客户退款。"]
+    else:
+        draw("L1", [(100, 203), (100, 267)], 170, 228)
+        draw("F1", [(313, 155), (497, 155), (497, 267)], 345, 120)
+        draw("L2", [(148, 315), (242, 315)], 195, 270)
+        draw("L3", [(100, 363), (100, 442)], 170, 398)
+        draw("F2", [(313, 490), (497, 490), (497, 363)], 345, 516)
+        s.text(195, 565, "E4：渠道成本自然余额 +10", 16)
+        note = ["本例：客户扣款 1,015 = 本金 1,000 + 服务费 15。", "渠道成本 10 从自有资金户支付；图中不展开后续收入资金划拨。"]
+    y = 55
+    for journal in model["journals"]:
+        y += journal_card(s, model, journal, 605, y) + 12
+    s.note(15, 600, 870, note)
+    return s
+
+
 def diagrams():
     scenes = {}
-    s = Scene(310)
-    for y, title, left, right, kind, label in [
-        (20, "消息层", "P 服务商", "P 银行", "M", "M1 付款请求"),
-        (115, "本地账务层", "A 客户钱包", "A 付款中间户", "L", "L1 100 USD | posted"),
-        (
-            210,
-            "外部资金层",
-            "A 服务商银行户",
-            "A 受益人银行户",
-            "F",
-            "F1 100 USD | confirmed",
-        ),
+    s = Scene(255)
+    for x, title, lines, fill in [
+        (15, "场景卡", ["本金 1,000 / 服务费 15", "渠道成本 10 USD", "规则、假设、分析边界"], YELLOW),
+        (315, "业务图", ["账户与资金位置", "F 资金 / L 账内 / I 信息", "统一业务事件编号"], GREEN),
+        (615, "关联表格", ["事件与成立条件", "会计分录、示例明细", "逐项核对金额与归属"], BLUE),
     ]:
-        s.text(26, y + 40, title, 19, "start")
-        if kind == "M":
-            s.rect(200, y + 8, 185, 54)
-            s.text(292, y + 43, left, 19)
-            s.rect(660, y + 8, 210, 54)
-            s.text(765, y + 43, right, 19)
-            start, end = 385, 660
-        else:
-            s.circle(290, y + 35, left, GREEN if kind == "L" else BLUE, 53)
-            s.circle(760, y + 35, right, GRAY if kind == "L" else BLUE, 58)
-            start, end = 350, 695
-        s.line([(start, y + 35), (end, y + 35)], kind, label, 520, y + 19)
-    s.text(525, 302, "同一本金：F1 realizes L1；不可重复计入客户付款", 17)
+        s.rect(x, 25, 270, 172, fill, radius=8)
+        s.text(x + 135, 59, title, 24)
+        for i, line in enumerate(lines):
+            s.text(x + 135, 96 + i * 32, line, 18)
+    s.text(450, 237, "同一场景、同一事件、同一金额口径；不同视角不重复合计", 19)
     scenes["01-overview"] = s
-    s = Scene(350)
-    s.party(15, 15, 210, 140, "P1 机构 / 账户维护方")
-    s.circle(120, 100, "A1 | USD", GREEN, 39)
-    s.rect(265, 20, 280, 125, WHITE, "7 4 1 4")
-    s.text(405, 49, "B1 / ledger=K1", 18)
-    s.text(405, 82, "atomic=true", 18)
-    s.text(405, 118, "本地提交边界", 17)
-    s.rect(585, 20, 295, 125, WHITE, radius=12)
-    s.text(732, 52, "G1 / operation=O1", 18)
-    s.text(732, 88, "业务归组", 19)
-    s.text(732, 120, "不承诺跨机构原子性", 16)
-    for y, k, label in [
-        (200, "L", "L 单实线：本地账务"),
-        (252, "F", "F 双线：外部资金"),
-        (304, "M", "M 虚线空心：消息"),
-    ]:
-        s.line([(35, y), (275, y)], k)
-        s.text(310, y + 6, label, 19, "start")
-    s.note(620, 185, 255, ["N 黄色注释", "细点线，无箭头", "状态始终使用文字标签"])
-    s.line([(610, 235), (560, 260)], "N")
+    s = Scene(335)
+    s.party(15, 15, 260, 140, "P 参与方 / 账户维护主体")
+    s.circle(145, 100, "A 客户可用\n负债 / USD", GREEN, 44)
+    for y, kind, label in [(62, "F", "F 实际资金划转"), (111, "L", "L 账内变化 / 分配"), (160, "I", "I 业务信息")]:
+        s.line([(325, y), (565, y)], kind)
+        s.text(590, y + 6, label, 19, "start")
+    s.note(15, 195, 410, ["已定规则 / 本例假设 / 待决问题", "黄色便笺；说明引线不带箭头。"])
+    s.text(660, 236, "F1 / E2 · 1,000 USD", 19)
+    s.text(660, 269, "边编号 / 事件编号 · 金额", 17)
+    s.text(450, 324, "颜色辅助分类；线型与字母固定；坐标默认不表示先后。", 18)
     scenes["02-legend"] = s
-    s = Scene(285)
-    s.party(15, 15, 420, 220, "P_PROVIDER 服务商 / custodian")
-    s.circle(120, 105, "A_WALLET", GREEN, 48)
-    s.circle(325, 105, "A_TRANSIT", GRAY, 48)
-    s.text(120, 180, "owner=P_CUSTOMER", 17)
-    s.text(325, 180, "owner=P_PROVIDER", 17)
-    s.text(225, 218, "ledger=K1 / normalized / USD", 17)
-    s.party(470, 15, 415, 220, "P_BANK 银行 / custodian")
-    s.circle(675, 105, "A_BANK", BLUE, 48)
-    s.text(675, 180, "owner=P_PROVIDER", 17)
-    s.text(675, 218, "ledger=K_BANK / settlement / USD", 17)
-    s.text(450, 270, "摆放按 custodian；owner 另写；同一机构可以维护多类账户", 18)
-    scenes["03-ownership"] = s
-    s = Scene(325)
-    s.rect(15, 15, 425, 240, WHITE, "7 4 1 4")
-    s.text(225, 45, "B_SPLIT / K1 / atomic=true", 18)
-    s.circle(80, 140, "A1", GREEN)
-    s.circle(365, 100, "A2", GRAY)
-    s.circle(365, 205, "A3", GRAY)
-    s.line(
-        [(118, 140), (220, 140), (220, 100), (327, 100)], "L", "L1 | 100 USD", 230, 82
-    )
-    s.line([(220, 140), (220, 205), (327, 205)], "L", "L2 | 1 USD", 245, 234)
-    s.text(80, 205, "Δ=-101", 17)
-    s.rect(460, 15, 425, 240, WHITE, "7 4 1 4")
-    s.text(672, 45, "B_GATHER / K1 / atomic=true", 18)
-    s.circle(525, 100, "A4", GREEN)
-    s.circle(525, 205, "A5", GREEN)
-    s.circle(820, 150, "A6", GRAY)
-    s.line(
-        [(563, 100), (675, 100), (675, 150), (782, 150)], "L", "L3 | 60 USD", 680, 82
-    )
-    s.line([(563, 205), (675, 205), (675, 150)], "L", "L4 | 40 USD", 680, 235)
-    s.text(820, 220, "Δ=+100", 17)
-    s.note(150, 270, 600, ["同一 commit_ref 才表示本地一次提交；客户活动条数另定"])
-    scenes["04-composition"] = s
-    s = Scene(330)
-    s.line([(30, 90), (870, 90)], "T")
-    s.text(860, 120, "t / not to scale", 16, "end")
-    for x, label in [
-        (95, "e1 请求"),
-        (300, "e2 超时"),
-        (510, "e3 查询"),
-        (740, "e4 明确未执行"),
-    ]:
-        s.line([(x, 80), (x, 100)], "N")
-        s.text(x, 65, label, 18)
-    s.note(185, 175, 250, ["F1.state=?", "knowledge=unknown", "保留最后已知 submitted"])
-    s.note(
-        510,
-        175,
-        345,
-        [
-            "只有 e4 证据满足重试门槛",
-            "才可建立 F2 retry_of F1",
-            "同 O / 同 effect；不再次扣款",
-        ],
-    )
-    s.line([(300, 105), (300, 170)], "N")
-    s.line([(740, 105), (740, 170)], "N")
-    scenes["05-retry"] = s
-    s = Scene(345)
-    s.text(450, 25, "FX Q1：1 USD = 2 AUD；不同币种分别闭合", 21)
-    s.circle(95, 110, "客户 USD", GREEN, 51)
-    s.circle(755, 110, "FX USD", GRAY, 51)
-    s.line([(148, 110), (702, 110)], "L", "L_USD | 100 USD", 425, 92)
-    s.circle(95, 240, "FX AUD", GRAY, 51)
-    s.circle(755, 240, "中间 AUD", GRAY, 51)
-    s.line([(148, 240), (702, 240)], "L", "L_AUD | 200 AUD", 425, 222)
-    s.note(
-        275,
-        270,
-        500,
-        [
-            "退回 180 AUD -> 新兑换 85 USD；承诺退款 90 USD",
-            "差额 5 USD 单独标为补足义务，不自动等于总 FX P&L",
-        ],
-    )
-    scenes["06-fx"] = s
-    s = Scene(450)
-    s.rect(15, 15, 870, 415, WHITE, radius=12)
-    s.text(450, 43, "G O1：L1、L2 posted 且 F1 confirmed 才完成", 19)
-    s.rect(35, 65, 830, 215, WHITE, "7 4 1 4")
-    s.text(450, 88, "B1 / K1 / split / atomic=true / commit:B1", 17)
-    s.circle(115, 165, "A1\n钱包 USD", GREEN, 48)
-    s.circle(725, 145, "A2\n中间 USD", GRAY, 40)
-    s.circle(725, 235, "A3\n收入 USD", WHITE, 36)
-    s.line(
-        [(165, 165), (350, 165), (350, 145), (683, 145)],
-        "L",
-        "L1 100 USD | posted",
-        455,
-        130,
-    )
-    s.line([(350, 165), (350, 235), (687, 235)], "L", "L2 1 USD | posted", 475, 259)
-    s.circle(115, 355, "A4\n银行 USD", BLUE, 47)
-    s.circle(725, 355, "A5\n银行 USD", BLUE, 47)
-    s.line([(164, 355), (675, 355)], "F", "F1 100 USD | confirmed", 445, 335)
-    s.text(445, 397, "basis=beneficiary_credit；F1 realizes L1", 17)
-    scenes["07-payout"] = s
-    s = Scene(465)
-    s.text(450, 28, "O_REFUND：退回、补足和客户入账分别确认", 21)
-    s.circle(100, 100, "原对端\nAUD 银行户", BLUE, 48)
-    s.circle(770, 100, "服务商\nAUD 银行户", BLUE, 52)
-    s.line([(150, 100), (715, 100)], "F", "F_RETURN | 180 AUD | confirmed", 430, 80)
-    s.note(
-        220,
-        135,
-        495,
-        [
-            "returns F_PAY（原 200 AUD）；20 AUD 费用不退",
-            "新兑换回收 85 USD；原汇率退款承诺 90 USD",
-        ],
-    )
-    s.rect(20, 225, 860, 215, WHITE, "7 4 1 4")
-    s.text(45, 250, "B_REF / K_USD", 16, "start")
-    s.text(45, 274, "atomic=true / posted / commit:B_REF", 16, "start")
-    s.circle(450, 280, "A_TOPUP\n补足账户", WHITE, 34)
-    s.circle(100, 380, "A_RCV\n回收资金", GRAY, 46)
-    s.circle(450, 380, "A_POOL\n退款池", GRAY, 46)
-    s.circle(795, 380, "A_WALLET\n客户钱包", GREEN, 46)
-    s.line([(148, 380), (402, 380)], "L", "L_RCV | 85 USD", 275, 360)
-    s.line([(498, 380), (747, 380)], "L", "L_REF | 90 USD", 625, 360)
-    s.line([(450, 316), (450, 332)], "L")
-    s.text(570, 328, "L_TOPUP | 5 USD", 16)
-    scenes["08-refund"] = s
-    s = Scene(475)
-    s.rect(20, 15, 210, 52)
-    s.text(125, 48, "P_CUSTOMER", 19)
-    s.rect(640, 15, 240, 52)
-    s.text(760, 48, "P_PLATFORM", 19)
-    s.line([(230, 41), (640, 41)], "M", "M_BOOK / Book Order / 102 USD", 435, 26)
-    s.line([(640, 100), (230, 100)], "M", "M_QUOTE / Quote / 100 + 2 USD", 435, 125)
-    s.rect(20, 155, 860, 300, WHITE, "7 4 1 4")
-    s.text(450, 175, "B_ADD / K1 / split / atomic=true", 18)
-    s.text(450, 195, "全部 L posted / commit:B_ADD", 16)
-    s.circle(110, 320, "A1\n客户钱包", GREEN, 47)
-    for y, aid, name, amount, lid in [
-        (230, "A2", "付款中间户", "100", "L1"),
-        (320, "A3", "平台收入", "1", "L3"),
-        (410, "A4", "SaaS 收入", "1", "L2"),
-    ]:
-        s.circle(780, y, aid + "\n" + name, GRAY, 38)
-        s.line(
-            [(158, 320), (350, 320), (350, y), (740, y)],
-            "L",
-            f"{lid} | {amount} USD",
-            540,
-            y - 12,
-        )
-    s.text(110, 400, "Δ=-102 USD", 17)
-    scenes["09-addon"] = s
+    scenes["03-payout"] = business_scene(MODELS[0])
+    scenes["04-refund"] = business_scene(MODELS[1], True)
+    s = Scene(480)
+    for y, model in [(20, MODELS[0]), (255, MODELS[1])]:
+        s.text(20, y + 20, model["scenario"]["id"] + " · 业务信息视图", 19, "start")
+        s.rect(25, y + 44, 170, 125, GREEN, radius=7)
+        s.text(110, y + 78, "客户", 21)
+        s.rect(345, y + 44, 210, 125, GRAY, radius=7)
+        s.text(450, y + 78, "PSP", 21)
+        s.rect(720, y + 44, 155, 125, BLUE, radius=7)
+        s.text(798, y + 78, "IBC", 21)
+    s.line([(195, 115), (345, 115)], "I")
+    s.text(270, 102, "I1 / E1", 17)
+    s.text(270, 148, "付款指令", 17)
+    s.line([(720, 115), (555, 115)], "I")
+    s.text(637, 102, "I2 / E3", 17)
+    s.text(637, 148, "付款完成确认", 17)
+    s.line([(720, 175), (555, 175)], "I")
+    s.text(637, 200, "I3 / E4 · 渠道扣费通知", 16)
+    s.line([(720, 350), (555, 350)], "I")
+    s.text(637, 337, "I_R1 / R1", 17)
+    s.text(637, 383, "本金退回通知", 17)
+    s.line([(345, 350), (195, 350)], "I")
+    s.text(270, 337, "I_R2 / R4", 17)
+    s.text(270, 383, "退款完成通知", 17)
+    s.text(450, 465, "信息视图不增加资金金额；通过事件编号关联同一业务图。", 18)
+    scenes["05-information"] = s
     return scenes
+
+
+def html_table(headers, rows):
+    head = "".join(f"<th>{html.escape(str(v))}</th>" for v in headers)
+    body = "".join(
+        "<tr>" +
+        "".join(
+            f"<td>{
+                html.escape(
+                    str(v))}</td>" for v in row) +
+        "</tr>" for row in rows)
+    return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+
+
+def build_example_html(model, stem, scene_key):
+    accounts = {a["id"]: a for a in model["accounts"]}
+    parties = {p["id"]: p["name"] for p in model["parties"]}
+    journal_ids = defaultdict(list)
+    for journal in model["journals"]:
+        journal_ids[journal["event_ref"]].append(journal["id"])
+    events = html_table(
+        ["事件", "成立条件", "前置事件", "分录"],
+        [(e["id"] + " " + e["name"], e["condition"], ", ".join(e["after"]) or "无",
+          ", ".join(journal_ids[e["id"]])) for e in model["events"]],
+    )
+    entries = html_table(
+        ["分录 / 事件", "方向", "科目", "账户", "金额 USD"],
+        [(j["id"] + " / " + j["event_ref"], row["side"],
+          accounts[row["account_ref"]]["code"], accounts[row["account_ref"]]["name"],
+          amount(row["money"])) for j in model["journals"] for row in j["rows"]],
+    )
+    records = html_table(
+        ["明细", "订单", "视角", "业务含义", "金额 USD", "事件"],
+        [(r["id"], r["order_ref"], r["perspective"], r["meaning"], amount(r["money"]),
+          ", ".join(r["event_refs"])) for r in model["records"]],
+    )
+    infos = html_table(
+        ["信息 / 事件", "发送方 → 接收方", "业务含义"],
+        [(i["id"] + " / " + i["event_ref"],
+          parties[i["from_party"]] + " → " + parties[i["to_party"]], i["meaning"])
+         for i in model["information"]],
+    )
+    changes = balance_changes(model)
+    deltas = []
+    for aid, account in accounts.items():
+        if account["kind"] == "external":
+            continue
+        value = sum(change.get(aid, 0) for change in changes.values())
+        sign = "-" if value < 0 else "+" if value > 0 else ""
+        label = sign + amount({"currency": account["currency"], "minor": abs(value)})
+        deltas.append((account["code"], account["name"], label))
+    template = Template((ROOT / "tools" / "example-template.html").read_text())
+    page = template.substitute(
+        title=html.escape(model["scenario"]["title"]),
+        scenario_id=model["scenario"]["id"],
+        other_stem="refund" if stem == "payout" else "payout",
+        other_name="退款" if stem == "payout" else "出款",
+        assumptions="".join(f"<li>{html.escape(v)}</li>" for v in model["scenario"]["assumptions"]),
+        scope=html.escape(model["scenario"]["scope"]),
+        svg=(ROOT / "figures" / f"{scene_key}.svg").read_text(),
+        events=events, entries=entries, records=records, infos=infos,
+        deltas=html_table(["科目", "账户", "本次自然余额变化 USD"], deltas),
+    )
+    (ROOT / "examples" / f"{stem}.html").write_text(page)
 
 
 def markup(text):
@@ -529,7 +528,7 @@ def build_pdf(source, target, scenes):
         leftMargin=48,
         topMargin=53,
         bottomMargin=48,
-        title=source.stem + " | FTN 1.0",
+        title=source.stem + " | FTN 1.1",
         author="FTN design proposal",
         allowSplitting=True,
     )
@@ -573,7 +572,7 @@ def build_pdf(source, target, scenes):
             weights = {
                 2: [0.21, 0.79],
                 3: [0.21, 0.39, 0.40],
-                4: [0.39, 0.21, 0.22, 0.18],
+                4: [0.23, 0.24, 0.28, 0.25],
             }.get(count, [1 / count] * count)
             cells = [
                 [Paragraph(markup(c), st["th" if r == 0 else "table"]) for c in row]
@@ -634,7 +633,7 @@ def build_pdf(source, target, scenes):
         canvas.drawString(
             48,
             815,
-            "FTN 1.0  /  "
+            "FTN 1.1  /  "
             + ("规范" if source.stem == "规范" else "改进说明")
             + "  /  Proposal",
         )
@@ -657,13 +656,19 @@ def main():
     pdfmetrics.registerFontFamily(
         "CJK", normal="CJK", bold="CJK", italic="CJK", boldItalic="CJK"
     )
+    for model in MODELS:
+        errors = validate(model)
+        if errors:
+            raise ValueError("\n".join(errors))
     scenes = diagrams()
     (ROOT / "figures").mkdir(exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
     for name, scene in scenes.items():
         scene.save(ROOT / "figures" / f"{name}.svg")
+    for model, stem, scene_key in zip(MODELS, ("payout", "refund"), ("03-payout", "04-refund")):
+        build_example_html(model, stem, scene_key)
     for stem in ["规范", "改进说明"]:
-        target = OUT / f"金融交易图示法-{stem}-v1.0.pdf"
+        target = OUT / f"金融交易图示法-{stem}-v1.1.pdf"
         build_pdf(ROOT / f"{stem}.md", target, scenes)
         print(target.name)
 

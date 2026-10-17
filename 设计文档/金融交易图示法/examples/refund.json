@@ -1,0 +1,441 @@
+{
+  "version": "1.1",
+  "scenario": {
+    "id": "SC-REFUND",
+    "title": "全额退款：本金退回、退费与客户余额恢复",
+    "entity": "P_PSP",
+    "currency": "USD",
+    "scope": "渠道资金位置为边界，最终收款人银行与后续收入资金划拨不展开",
+    "assumptions": [
+      "原订单 P00001 已完成；退款订单 R00001 关联原订单。",
+      "本例选择：本金 1,000、客户服务费 15、渠道手续费 10 USD 全部退还。",
+      "本金回客户资金户；渠道退费回自有资金户；客户退款使用待结算账户归集。",
+      "渠道退费到账不是客户退款的前置条件；未包含其他费用及 FX。"
+    ]
+  },
+  "currency_scale": {
+    "USD": 2
+  },
+  "parties": [
+    {
+      "id": "P_PSP",
+      "name": "PSP 付款服务商"
+    },
+    {
+      "id": "P_CUSTOMER",
+      "name": "客户"
+    },
+    {
+      "id": "P_DBS",
+      "name": "DBS 银行"
+    },
+    {
+      "id": "P_IBC",
+      "name": "IBC 渠道"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "A_AVAIL",
+      "name": "客户余额·可用",
+      "code": "2202-01",
+      "nature": "liability",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "A_FROZEN",
+      "name": "客户余额·冻结",
+      "code": "2202-07",
+      "nature": "liability",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "A_TRANSIT",
+      "name": "客户余额·待结算",
+      "code": "2202-04",
+      "nature": "liability",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "A_BANK_C",
+      "name": "DBS·客户资金户",
+      "code": "1002-04",
+      "nature": "asset",
+      "kind": "bank",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": "P_DBS"
+    },
+    {
+      "id": "A_BANK_O",
+      "name": "DBS·自有资金户",
+      "code": "1002-32",
+      "nature": "asset",
+      "kind": "bank",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": "P_DBS"
+    },
+    {
+      "id": "A_CHANNEL",
+      "name": "IBC·渠道往来",
+      "code": "2241-20",
+      "nature": "liability",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "A_REVENUE",
+      "name": "服务费收入",
+      "code": "6001-04",
+      "nature": "revenue",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "A_COST",
+      "name": "渠道成本",
+      "code": "6401-02",
+      "nature": "expense",
+      "kind": "ledger",
+      "party": "P_PSP",
+      "currency": "USD",
+      "bank": null
+    },
+    {
+      "id": "X_IBC",
+      "name": "IBC·渠道资金户",
+      "code": null,
+      "nature": "external",
+      "kind": "external",
+      "party": "P_IBC",
+      "currency": "USD",
+      "bank": null
+    }
+  ],
+  "orders": [
+    {
+      "id": "P00001",
+      "type": "payment",
+      "original_ref": null
+    },
+    {
+      "id": "R00001",
+      "type": "refund",
+      "original_ref": "P00001"
+    }
+  ],
+  "components": {
+    "principal": {
+      "currency": "USD",
+      "minor": 100000
+    },
+    "customer_fee": {
+      "currency": "USD",
+      "minor": 1500
+    },
+    "channel_fee": {
+      "currency": "USD",
+      "minor": 1000
+    }
+  },
+  "events": [
+    {
+      "id": "R1",
+      "name": "本金退回",
+      "order_ref": "R00001",
+      "condition": "原本金已退入客户资金户",
+      "after": []
+    },
+    {
+      "id": "R2",
+      "name": "渠道退费",
+      "order_ref": "R00001",
+      "condition": "原费用已退入自有资金户",
+      "after": []
+    },
+    {
+      "id": "R3",
+      "name": "确认客户退款",
+      "order_ref": "R00001",
+      "condition": "本金已回收且客户服务费获准退还",
+      "after": [
+        "R1"
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "恢复客户可用",
+      "order_ref": "R00001",
+      "condition": "客户退款金额由待结算转可用",
+      "after": [
+        "R3"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "F_R1",
+      "kind": "F",
+      "from": "X_IBC",
+      "to": "A_BANK_C",
+      "money": {
+        "currency": "USD",
+        "minor": 100000
+      },
+      "event_ref": "R1"
+    },
+    {
+      "id": "F_R2",
+      "kind": "F",
+      "from": "X_IBC",
+      "to": "A_BANK_O",
+      "money": {
+        "currency": "USD",
+        "minor": 1000
+      },
+      "event_ref": "R2"
+    },
+    {
+      "id": "L_R1",
+      "kind": "L",
+      "from": "A_CHANNEL",
+      "to": "A_TRANSIT",
+      "money": {
+        "currency": "USD",
+        "minor": 100000
+      },
+      "event_ref": "R3"
+    },
+    {
+      "id": "L_R2",
+      "kind": "L",
+      "from": "A_REVENUE",
+      "to": "A_TRANSIT",
+      "money": {
+        "currency": "USD",
+        "minor": 1500
+      },
+      "event_ref": "R3"
+    },
+    {
+      "id": "L_R3",
+      "kind": "L",
+      "from": "A_TRANSIT",
+      "to": "A_AVAIL",
+      "money": {
+        "currency": "USD",
+        "minor": 101500
+      },
+      "event_ref": "R4"
+    }
+  ],
+  "information": [
+    {
+      "id": "I_R1",
+      "from_party": "P_IBC",
+      "to_party": "P_PSP",
+      "meaning": "本金退回结算通知：1,000 USD",
+      "event_ref": "R1"
+    },
+    {
+      "id": "I_R2",
+      "from_party": "P_PSP",
+      "to_party": "P_CUSTOMER",
+      "meaning": "退款完成通知：1,015 USD",
+      "event_ref": "R4"
+    }
+  ],
+  "journals": [
+    {
+      "id": "JR0001",
+      "event_ref": "R1",
+      "rows": [
+        {
+          "account_ref": "A_BANK_C",
+          "side": "DR",
+          "money": {
+            "currency": "USD",
+            "minor": 100000
+          }
+        },
+        {
+          "account_ref": "A_CHANNEL",
+          "side": "CR",
+          "money": {
+            "currency": "USD",
+            "minor": 100000
+          }
+        }
+      ]
+    },
+    {
+      "id": "JR0002",
+      "event_ref": "R2",
+      "rows": [
+        {
+          "account_ref": "A_BANK_O",
+          "side": "DR",
+          "money": {
+            "currency": "USD",
+            "minor": 1000
+          }
+        },
+        {
+          "account_ref": "A_COST",
+          "side": "CR",
+          "money": {
+            "currency": "USD",
+            "minor": 1000
+          }
+        }
+      ]
+    },
+    {
+      "id": "JR0003",
+      "event_ref": "R3",
+      "rows": [
+        {
+          "account_ref": "A_CHANNEL",
+          "side": "DR",
+          "money": {
+            "currency": "USD",
+            "minor": 100000
+          }
+        },
+        {
+          "account_ref": "A_REVENUE",
+          "side": "DR",
+          "money": {
+            "currency": "USD",
+            "minor": 1500
+          }
+        },
+        {
+          "account_ref": "A_TRANSIT",
+          "side": "CR",
+          "money": {
+            "currency": "USD",
+            "minor": 101500
+          }
+        }
+      ]
+    },
+    {
+      "id": "JR0004",
+      "event_ref": "R4",
+      "rows": [
+        {
+          "account_ref": "A_TRANSIT",
+          "side": "DR",
+          "money": {
+            "currency": "USD",
+            "minor": 101500
+          }
+        },
+        {
+          "account_ref": "A_AVAIL",
+          "side": "CR",
+          "money": {
+            "currency": "USD",
+            "minor": 101500
+          }
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "id": "RT00001",
+      "order_ref": "R00001",
+      "perspective": "客户",
+      "meaning": "客户本金退款",
+      "money": {
+        "currency": "USD",
+        "minor": 100000
+      },
+      "event_refs": [
+        "R3"
+      ]
+    },
+    {
+      "id": "RT00002",
+      "order_ref": "R00001",
+      "perspective": "客户",
+      "meaning": "客户服务费退还",
+      "money": {
+        "currency": "USD",
+        "minor": 1500
+      },
+      "event_refs": [
+        "R3"
+      ]
+    },
+    {
+      "id": "RT00003",
+      "order_ref": "R00001",
+      "perspective": "渠道费用",
+      "meaning": "渠道退费",
+      "money": {
+        "currency": "USD",
+        "minor": 1000
+      },
+      "event_refs": [
+        "R2"
+      ]
+    }
+  ],
+  "refund": {
+    "original_scenario_ref": "SC-PAYOUT",
+    "original_order_ref": "P00001",
+    "order_ref": "R00001",
+    "caps": [
+      {
+        "component": "principal",
+        "original_money": {
+          "currency": "USD",
+          "minor": 100000
+        },
+        "prior_minor": 0,
+        "flow_refs": [
+          "L_R1"
+        ]
+      },
+      {
+        "component": "customer_fee",
+        "original_money": {
+          "currency": "USD",
+          "minor": 1500
+        },
+        "prior_minor": 0,
+        "flow_refs": [
+          "L_R2"
+        ]
+      },
+      {
+        "component": "channel_fee",
+        "original_money": {
+          "currency": "USD",
+          "minor": 1000
+        },
+        "prior_minor": 0,
+        "flow_refs": [
+          "F_R2"
+        ]
+      }
+    ]
+  }
+}
