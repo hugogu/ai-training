@@ -2163,7 +2163,7 @@
         "autoResize": true,
         "lineHeight": 1.4
       },
-      "markup": "$x=\\begin{pmatrix}1\\\\2\\end{pmatrix}$，$y=\\begin{pmatrix}2\\\\1\\end{pmatrix}$\n$x^{\\mathsf T}y=1\\times2+2\\times1=4$\n$\\|x\\|_2=\\|y\\|_2=\\sqrt5$\n$\\cos(x,y)=\\dfrac45=0.8$\n结论：内积含尺度，余弦看夹角\n用于理解向量检索与 $QK^{\\mathsf T}$ 打分"
+      "markup": "$x=(1,2)^{\\mathsf T}$，$y=(2,1)^{\\mathsf T}$\n$x^{\\mathsf T}y=1\\times2+2\\times1=4$\n$\\|x\\|_2=\\|y\\|_2=\\sqrt5$\n$\\cos(x,y)=\\dfrac45=0.8$\n结论：内积含尺度，余弦看夹角\n用于理解向量检索与 $QK^{\\mathsf T}$ 打分"
     },
     {
       "sourceElement": {
@@ -2205,7 +2205,7 @@
         "autoResize": true,
         "lineHeight": 1.4
       },
-      "markup": "$X=\\begin{pmatrix}1\\\\2\\\\3\\end{pmatrix}$，$y=\\begin{pmatrix}1\\\\2\\\\2\\end{pmatrix}$\n无截距：$w=\\dfrac{X^{\\mathsf T}y}{X^{\\mathsf T}X}=\\dfrac{11}{14}$\n预测 $Xw=\\dfrac1{14}\\begin{pmatrix}11\\\\22\\\\33\\end{pmatrix}$\n残差 $r=\\dfrac1{14}\\begin{pmatrix}3\\\\6\\\\-5\\end{pmatrix}$\n$X^{\\mathsf T}r=\\dfrac{3+12-15}{14}=0$\n结论：最优残差与列空间正交"
+      "markup": "$X=(1,2,3)^{\\mathsf T}$，$y=(1,2,2)^{\\mathsf T}$\n无截距：$w=\\dfrac{X^{\\mathsf T}y}{X^{\\mathsf T}X}=\\dfrac{11}{14}$\n预测 $Xw=\\dfrac1{14}(11,22,33)^{\\mathsf T}$；残差 $r=\\dfrac1{14}(3,6,-5)^{\\mathsf T}$\n$X^{\\mathsf T}r=\\dfrac{3+12-15}{14}=0$\n结论：最优残差与列空间正交"
     },
     {
       "sourceElement": {
@@ -2332,11 +2332,20 @@
       "markup": "记号：本图以实数为主；小写向量默认按列，数据批次 $X$ 按行；$W$ 采用 $d\\times h$。所有公式必须结合适用条件阅读。"
     }
   ],
+  "layoutPolicy": {
+    "cardHeight": "Fit content independently",
+    "bodyTop": 64,
+    "bottomPadding": 18,
+    "sectionGap": 26,
+    "exampleFontSize": 26
+  },
   "formulaCount": 241,
-  "assetCount": 201,
+  "assetCount": 204,
   "layout": {
     "fontFamily": "Helvetica / native Chinese fallback",
     "bodyFontSize": 23,
+    "exampleFontSize": 26,
+    "cardHeight": "content-fit",
     "note": "Each formula image also stores its original LaTeX in customData.latex."
   }
 }
