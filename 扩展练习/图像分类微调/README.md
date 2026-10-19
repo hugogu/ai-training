@@ -1,5 +1,7 @@
 # 图像分类微调：从通用 ResNet18 到蚂蚁/蜜蜂分类器
 
+建议先读 [前置知识：从基础概念到本练习](前置知识.md)，再运行 Notebook。文档包含关键模型原理、数据形状、代码对应关系与自测解答。
+
 打开 [ResNet18微调.ipynb](ResNet18微调.ipynb)，按顺序执行。它接在课程 2.2 的训练与评估、3.2 的图像预处理与预测之后。
 
 这个例子实际训练两次：先固定预训练网络，只训练新分类层；再解冻 `layer4`，以更小学习率微调已有特征。Notebook 会检查权重有没有变化，按验证集选择模型，在保留的测试集上评估，保存并重新加载模型进行预测。
@@ -63,3 +65,5 @@ Apple Silicon Mac 请使用原生 arm64 Python；若课程原内核通过 Rosett
 - [Torchvision ResNet18 权重与前处理](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html)
 - [PyTorch 保存与加载模型](https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html)
 - [PyTorch 与 Torchvision 版本配对](https://pytorch.org/get-started/previous-versions/)
+
+[返回扩展练习目录](../README.md)

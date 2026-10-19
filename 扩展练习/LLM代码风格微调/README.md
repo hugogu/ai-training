@@ -1,5 +1,7 @@
 # LLM 代码风格微调：SFT + LoRA
 
+建议先读 [前置知识：从基础概念到本练习](前置知识.md)，再运行 Notebook。文档包含关键模型原理、数据形状、代码对应关系与自测解答。
+
 打开 [LLM_LoRA微调.ipynb](LLM_LoRA微调.ipynb)，按顺序执行。这个例子接在 ResNet18 微调之后：仍然是带标签训练、验证与保存，但输入变成 token，监督目标变成期望答案，更新对象变成 LoRA 适配器。
 
 ## 为什么选代码风格
@@ -104,3 +106,5 @@ Notebook 还检查原有权重未变、LoRA 参数已更新，以及适配器离
 - [Qwen 代码模型与许可证](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct)
 - [PEFT LoRA](https://huggingface.co/docs/peft/developer_guides/lora)
 - [SFT 的数据、掩码与损失](https://huggingface.co/docs/trl/sft_trainer)
+
+[返回扩展练习目录](../README.md)
